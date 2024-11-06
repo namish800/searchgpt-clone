@@ -1,0 +1,13 @@
+.env
+.ipynb_checkpoints
+
+.idea
+
+checkpoints.sqlite
+checkpoints.sqlite-shm
+checkpoints.sqlite-wal
+*.sqlite*
+
+blinx-63185-firebase-adminsdk-qv7yr-737cbb7829.json
+
+__pycache__
