@@ -3,6 +3,7 @@ import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from langchain_core.messages import AIMessageChunk
 
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 import json
@@ -51,6 +52,8 @@ async def event_stream(chat_request: ChatRequest, request: Request, session_id=N
         is_on_chain_end = event["event"] == "on_chain_end"
         is_graph_step = any(t.startswith("graph:step:") for t in event.get("tags", []))
         is_on_chain_start = event["event"] == "on_chain_start"
+        is_chat_model_stream = event["event"] == "on_chat_model_stream"
+        is_on_chat_model_start = event["event"] == "on_chat_model_start"
 
         data = None
 
@@ -71,9 +74,18 @@ async def event_stream(chat_request: ChatRequest, request: Request, session_id=N
             data = {"message": "Searching the Internet", "session_id": session_id}
             yield ServerSentEvent(event="thoughts", data=json.dumps(data))
 
-        elif is_on_chain_end and is_graph_step and event["name"] == "chat_response":
-            search_result = convert_pydantic_to_dict(event["data"]["output"]["response"])
-            data = {"message": "Received response", "search_result": search_result, "session_id": session_id}
+        # elif is_on_chain_end and is_graph_step and event["name"] == "chat_response":
+        #     search_result = convert_pydantic_to_dict(event["data"]["output"]["response"])
+        #     data = {"message": "Received response", "search_result": search_result, "session_id": session_id}
+        #     yield ServerSentEvent(event="assistant", data=json.dumps(data))
+        elif is_on_chat_model_start and event["metadata"]["langgraph_node"] == "chat_response":
+            yield ServerSentEvent(event="assistant_msg_start", data="")
+
+        elif is_chat_model_stream and event["metadata"]["langgraph_node"] == "chat_response":
+            # search_result = convert_pydantic_to_dict(event["data"]["output"]["response"])
+            search_result_chunk: AIMessageChunk = event["data"]["chunk"]
+            data = {"message": "Received response", "search_result": search_result_chunk.content,
+                    "session_id": session_id}
             yield ServerSentEvent(event="assistant", data=json.dumps(data))
 
     yield ServerSentEvent(event="end", data=f"{json.dumps({'message': 'Stream ended'})}")

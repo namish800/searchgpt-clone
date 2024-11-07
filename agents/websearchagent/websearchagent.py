@@ -1,4 +1,3 @@
-import asyncio
 import aiosqlite
 
 from typing import List
@@ -135,7 +134,8 @@ async def summarize_results(state: WebSearchState, config: RunnableConfig):
 
     chain = llm | StrOutputParser()
 
-    resp = await chain.ainvoke(prompt)
+    # need to pass this config so that it streams the llm token from this node
+    resp = await chain.ainvoke(prompt, config)
 
     return {"response": resp, "messages": [Message(role=MessageRole.ASSISTANT, content=resp)]}
 
