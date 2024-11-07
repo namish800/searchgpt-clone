@@ -23,14 +23,14 @@ jobs:
       uses: docker/login-action@v2
       with:
         registry: https://ghcr.io/
-        username: ${{ secrets.AzureAppService_ContainerUsername_2caa72bbe7f641fba86c846c6a0f2421 }}
-        password: ${{ secrets.AzureAppService_ContainerPassword_e8f126c9253947b2848d51a197f6fbb5 }}
+        username: ${{ secrets.AzureAppService_ContainerUsername_701e482c6e9242dcade99543feb37d22 }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_429d8a30732f4fae90180bc1d17d7d4c }}
 
     - name: Build and push container image to registry
       uses: docker/build-push-action@v3
       with:
         push: true
-        tags: ghcr.io/${{ secrets.AzureAppService_ContainerUsername_2caa72bbe7f641fba86c846c6a0f2421 }}/namish800/searchgpt:${{ github.sha }}
+        tags: ghcr.io/${{ secrets.AzureAppService_ContainerUsername_701e482c6e9242dcade99543feb37d22 }}/namish800/searchgpt:${{ github.sha }}
         file: ./Dockerfile
 
   deploy:
@@ -47,5 +47,5 @@ jobs:
       with:
         app-name: 'searchgpt-clone'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_7a7b959d79064a98ae794069d6fe57df }}
-        images: 'ghcr.io/${{ secrets.AzureAppService_ContainerUsername_2caa72bbe7f641fba86c846c6a0f2421 }}/namish800/searchgpt:${{ github.sha }}'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_0e27cf73dd6e4bb290c80ef8b7da0c1c }}
+        images: 'ghcr.io/${{ secrets.AzureAppService_ContainerUsername_701e482c6e9242dcade99543feb37d22 }}/namish800/searchgpt:${{ github.sha }}'
