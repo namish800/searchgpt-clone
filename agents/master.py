@@ -38,6 +38,7 @@ def get_route(state: ChatState):
     last_msg = messages_list[-1]
     if isinstance(last_msg, AIMessage) and last_msg.tool_calls:
         print(last_msg.tool_calls)
+        # implement a factory for getting the agent from the tool
         return "websearcheagent"
     #     if master agent wants to reply to user directly from here last message in list would be of assistant's
     return END

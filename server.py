@@ -41,9 +41,11 @@ def convert_pydantic_to_dict(obj):
 
 async def event_stream(query: str, request: Request, session_id=None):
     agent = Master().get_agent()
-    print(session_id)
-    session_id = session_id if session_id else uuid.uuid4().__str__()
-    print(session_id)
+
+    if not session_id:
+        session_id = uuid.uuid4().__str__()
+        data = {"session_id": session_id}
+        yield ServerSentEvent(event="start_session", data=json.dumps(data))
 
     messages = [HumanMessage(content=query)]
     agent_config = {"configurable": {"thread_id": session_id}}
