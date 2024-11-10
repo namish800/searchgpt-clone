@@ -13,7 +13,7 @@ from agents.websearchagent.prompts import SUMMARIZE_CHAT_PROMPT, QUERY_PLAN_PROM
 from agents.websearchagent.state import WebSearchState
 from llm.llm import LLMFactory
 from schemas import ChatRequest, QueryPlan, StepContext, QueryPlanStep, QueryStepExecution, SingleStepResults, \
-    SearchResult, MessageRole, Message
+    SearchResult
 
 from tavily import TavilyClient
 from datetime import datetime
@@ -21,8 +21,8 @@ from datetime import datetime
 
 class WebSearchAgent:
     def __init__(self):
-        conn = aiosqlite.connect("checkpoints.sqlite", check_same_thread=False)
-        self.memory = AsyncSqliteSaver(conn)
+        # conn = aiosqlite.connect("checkpoints.sqlite", check_same_thread=False)
+        # self.memory = AsyncSqliteSaver(conn)
 
         workflow = StateGraph(WebSearchState)
         workflow.add_node("summarize_query", rephrase_query_with_history_v0)
@@ -37,24 +37,20 @@ class WebSearchAgent:
 
         workflow.set_entry_point("summarize_query")
 
-        self.graph = workflow.compile(checkpointer=self.memory)
+        self.graph = workflow.compile()
 
     def get_agent(self):
         return self.graph
-
-
-def create_message(role: MessageRole, content: str):
-    return Message(role=role, content=content)
 
 
 async def rephrase_query_with_history_v0(
         state: WebSearchState,
         config: RunnableConfig
 ):
-    if not state.messages:
-        return {"query": state.request.query, "messages": [Message(role=MessageRole.USER, content=state.request.query)]}
-
-    history_str = "\n".join(f"{msg.role}: {msg.content}" for msg in state.messages)
+    history_msgs = state.messages[:-1]
+    query = state.messages[-1]
+    print(len(state.messages), len(history_msgs))
+    history_str = "\n".join("\n".join(f"{msg.type}: {msg.content}" for msg in history_msgs))
     model_name = config["configurable"].get("model", "gpt-4o")
     llm_factory = LLMFactory()
     llm = llm_factory.get_llm_by_name(model_name)
@@ -65,9 +61,9 @@ async def rephrase_query_with_history_v0(
     chain = prompt_template | llm | parser
     question = await chain.ainvoke({
         'chat_history': history_str,
-        'question': state.request.query
+        'question': query.content
     })
-    return {"query": question, "messages": [Message(role=MessageRole.USER, content=question)]}
+    return {"query": question}
 
 
 async def generate_plan_v0(state: WebSearchState, config: RunnableConfig):
@@ -137,7 +133,7 @@ async def summarize_results(state: WebSearchState, config: RunnableConfig):
     # need to pass this config so that it streams the llm token from this node
     resp = await chain.ainvoke(prompt, config)
 
-    return {"response": resp, "messages": [Message(role=MessageRole.ASSISTANT, content=resp)]}
+    return {"search_result": resp}
 
 
 def ranked_search_results_and_images_from_queries(step: str,
@@ -166,20 +162,3 @@ def format_step_context(context: List[StepContext]):
     return "\n".join(
         [f"Step: {step.step}\nContext: {step.context}" for step in context]
     )
-
-
-# def single_task_executor(state: WebSearchState, config: RunnableConfig):
-#
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    _ = load_dotenv()
-    agent = WebSearchAgent().get_agent()
-    # agent.run()
-
-    query = "News about war between Russia and ukraine"
-    request = ChatRequest(query=query)
-
-    for msg, metadata in agent.stream({"request": request}, stream_mode="messages"):
-        print(metadata, end="|", flush=True)

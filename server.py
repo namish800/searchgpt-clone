@@ -3,10 +3,11 @@ import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_core.messages import AIMessageChunk
+from langchain_core.messages import AIMessageChunk, HumanMessage
 
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
-import json
+
+from agents.master import Master
 from agents.websearchagent.websearchagent import WebSearchAgent
 from schemas import ChatRequest
 from pydantic import BaseModel
@@ -38,14 +39,15 @@ def convert_pydantic_to_dict(obj):
         return obj
 
 
-async def event_stream(chat_request: ChatRequest, request: Request, session_id=None):
-    agent = WebSearchAgent().get_agent()
+async def event_stream(query: str, request: Request, session_id=None):
+    agent = Master().get_agent()
     print(session_id)
     session_id = session_id if session_id else uuid.uuid4().__str__()
     print(session_id)
 
+    messages = [HumanMessage(content=query)]
     agent_config = {"configurable": {"thread_id": session_id}}
-    async for event in agent.astream_events({"request": chat_request, "current_step_idx": 0}, config=agent_config,
+    async for event in agent.astream_events({"messages": messages}, config=agent_config,
                                             version="v2"):
         if await request.is_disconnected():
             break
@@ -81,18 +83,31 @@ async def event_stream(chat_request: ChatRequest, request: Request, session_id=N
         elif is_on_chat_model_start and event["metadata"]["langgraph_node"] == "chat_response":
             yield ServerSentEvent(event="assistant_msg_start", data="")
 
+        elif is_on_chat_model_start and event["metadata"]["langgraph_node"] == "converstationagent":
+            yield ServerSentEvent(event="assistant_msg_start", data="")
+
         elif is_chat_model_stream and event["metadata"]["langgraph_node"] == "chat_response":
             # search_result = convert_pydantic_to_dict(event["data"]["output"]["response"])
             search_result_chunk: AIMessageChunk = event["data"]["chunk"]
-            data = {"message": "Received response", "search_result": search_result_chunk.content,
-                    "session_id": session_id}
-            yield ServerSentEvent(event="assistant", data=json.dumps(data))
+            # In case of tool call content will be blank
+            if search_result_chunk.content != "":
+                data = {"message": "Received response", "search_result": search_result_chunk.content,
+                        "session_id": session_id}
+                yield ServerSentEvent(event="assistant", data=json.dumps(data))
+
+        elif is_chat_model_stream and event["metadata"]["langgraph_node"] == "converstationagent":
+            # search_result = convert_pydantic_to_dict(event["data"]["output"]["response"])
+            search_result_chunk: AIMessageChunk = event["data"]["chunk"]
+            # In case of tool call content will be blank
+            if search_result_chunk.content != "":
+                data = {"message": "Received response", "search_result": search_result_chunk.content,
+                        "session_id": session_id}
+                yield ServerSentEvent(event="assistant", data=json.dumps(data))
 
     yield ServerSentEvent(event="end", data=f"{json.dumps({'message': 'Stream ended'})}")
 
 
 @app.get("/stream")
 async def stream(query: str, session_id: str, request: Request):
-    chat_request = ChatRequest(query=query)
     print(session_id)
-    return EventSourceResponse(event_stream(chat_request, request, session_id))
+    return EventSourceResponse(event_stream(query, request, session_id))
