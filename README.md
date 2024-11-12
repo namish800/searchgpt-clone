@@ -1,6 +1,6 @@
-# Ross: Conversational AI Agent with Multi-Agent Orchestration
+# A multi agent to implement a SearchGpt clone.
 
-Ross is a conversational AI agent designed to assist users with internet searches and engage in friendly, context-aware interactions. Built on FastAPI, it leverages LangChain, LangGraph, and Server-Sent Events (SSE) for real-time, multi-agent conversational flows.
+This repo contains a conversational AI agent designed to assist users with internet searches and engage in friendly, context-aware interactions. Built on FastAPI, it leverages LangChain, LangGraph, and Server-Sent Events (SSE) for real-time, multi-agent conversational flows.
 
 ## Features
 
